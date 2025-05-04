@@ -70,16 +70,7 @@ class EnhancedStockPricePredictor:
             self.nlp_available = False
     
     def fetch_price_data(self, start_date, end_date):
-        """
-        Получение исторических цен акций с Yahoo Finance
         
-        Args:
-            start_date (str): Начальная дата в формате 'YYYY-MM-DD'
-            end_date (str): Конечная дата в формате 'YYYY-MM-DD'
-            
-        Returns:
-            pd.DataFrame: Данные о ценах акций
-        """
         print(f"Загрузка данных о ценах {self.ticker} с {start_date} по {end_date}...")
         
         try:
@@ -104,16 +95,7 @@ class EnhancedStockPricePredictor:
             return None
     
     def fetch_news_data(self, source_type='csv', **kwargs):
-        """
-        Загрузка новостных данных из различных источников
-        
-        Args:
-            source_type (str): Тип источника данных ('csv', 'newsapi', 'rss')
-            **kwargs: Дополнительные параметры для конкретного источника
-            
-        Returns:
-            pd.DataFrame: Данные о новостях
-        """
+       
         if source_type == 'csv':
             return self._fetch_news_from_csv(kwargs.get('csv_path'))
         elif source_type == 'newsapi':
@@ -129,15 +111,7 @@ class EnhancedStockPricePredictor:
             return None
     
     def _fetch_news_from_csv(self, csv_path):
-        """
-        Загрузка новостных данных из CSV-файла (например, с Kaggle)
-        
-        Args:
-            csv_path (str): Путь к CSV-файлу с новостями
-            
-        Returns:
-            pd.DataFrame: Данные о новостях
-        """
+      
         try:
             news_data = pd.read_csv(csv_path)
             
@@ -170,17 +144,7 @@ class EnhancedStockPricePredictor:
             return None
     
     def _fetch_news_from_newsapi(self, api_key, start_date, end_date):
-        """
-        Загрузка новостей через NewsAPI
-        
-        Args:
-            api_key (str): API ключ для NewsAPI
-            start_date (str): Начальная дата в формате 'YYYY-MM-DD'
-            end_date (str): Конечная дата в формате 'YYYY-MM-DD'
-            
-        Returns:
-            pd.DataFrame: Данные о новостях
-        """
+      
         try:
             newsapi = NewsApiClient(api_key=api_key)
             
@@ -234,15 +198,7 @@ class EnhancedStockPricePredictor:
             return None
     
     def _fetch_news_from_rss(self, rss_urls):
-        """
-        Загрузка новостей из RSS-фидов
-        
-        Args:
-            rss_urls (list): Список URL RSS-фидов
-            
-        Returns:
-            pd.DataFrame: Данные о новостях
-        """
+       
         try:
             import feedparser
             
@@ -286,15 +242,7 @@ class EnhancedStockPricePredictor:
             return None
     
     def _clean_text(self, text):
-        """
-        Очистка текста перед анализом тональности
-        
-        Args:
-            text (str): Исходный текст
-            
-        Returns:
-            str: Очищенный текст
-        """
+    
         if not isinstance(text, str):
             return ""
         
@@ -310,15 +258,7 @@ class EnhancedStockPricePredictor:
         return text
     
     def _analyze_sentiment_vader(self, text):
-        """
-        Анализ тональности текста с помощью VADER
-        
-        Args:
-            text (str): Текст для анализа
-            
-        Returns:
-            float: Оценка тональности [-1, 1]
-        """
+     
         text = self._clean_text(text)
         if not text:
             return 0.0
@@ -326,15 +266,6 @@ class EnhancedStockPricePredictor:
         return self.vader.polarity_scores(text)['compound']
     
     def _analyze_sentiment_finbert(self, text):
-        """
-        Анализ тональности текста с помощью FinBERT
-        
-        Args:
-            text (str): Текст для анализа
-            
-        Returns:
-            float: Оценка тональности [-1, 1]
-        """
         if not self.nlp_available or not isinstance(text, str) or not text:
             return 0.0
         
@@ -364,12 +295,6 @@ class EnhancedStockPricePredictor:
             return 0.0
     
     def _process_news_data(self):
-        """
-        Обработка новостных данных и анализ тональности
-        
-        Returns:
-            pd.DataFrame: Обработанные новостные данные
-        """
         if self.news_data is None:
             print("Нет новостных данных для обработки")
             return None
@@ -443,16 +368,6 @@ class EnhancedStockPricePredictor:
         return self.news_data
     
     def prepare_features(self, window_size=10, prediction_horizon=1):
-        """
-        Подготовка признаков для модели
-        
-        Args:
-            window_size (int): Размер окна для лаговых переменных
-            prediction_horizon (int): Горизонт прогнозирования (в днях)
-            
-        Returns:
-            tuple: (X, y, df) - признаки, целевая переменная и обработанный DataFrame
-        """
         if self.price_data is None:
             raise ValueError("Необходимо сначала загрузить данные с помощью fetch_price_data()")
         
@@ -485,20 +400,17 @@ class EnhancedStockPricePredictor:
         for period in [5, 12, 26]:
             df[f'ema_{period}'] = df['Close'].ewm(span=period, adjust=False).mean()
         
-        # MACD (Moving Average Convergence Divergence)
         df['macd'] = df['ema_12'] - df['ema_26']
         df['macd_signal'] = df['macd'].ewm(span=9, adjust=False).mean()
         df['macd_hist'] = df['macd'] - df['macd_signal']
         df['macd_slope'] = df['macd'].diff(3)  # Изменение за 3 дня
         
-        # RSI (Relative Strength Index)
         delta = df['Close'].diff()
         gain = delta.where(delta > 0, 0).rolling(window=14).mean()
         loss = -delta.where(delta < 0, 0).rolling(window=14).mean()
         rs = gain / loss
         df['rsi'] = 100 - (100 / (1 + rs))
         
-        # Stochastic Oscillator
         low_min = df['Low'].rolling(window=14).min()
         high_max = df['High'].rolling(window=14).max()
         df['stoch_k'] = 100 * ((df['Close'] - low_min) / (high_max - low_min))
@@ -510,10 +422,8 @@ class EnhancedStockPricePredictor:
         df['bb_upper'] = df['bb_middle'] + 2 * df['bb_std']
         df['bb_lower'] = df['bb_middle'] - 2 * df['bb_std']
         df['bb_width'] = (df['bb_upper'] - df['bb_lower']) / df['bb_middle']
-        # Положение цены в полосе Боллинджера (от 0 до 1)
         df['bb_position'] = (df['Close'] - df['bb_lower']) / (df['bb_upper'] - df['bb_lower'])
         
-        # ATR (Average True Range) - измеритель волатильности
         high_low = df['High'] - df['Low']
         high_close = (df['High'] - df['Close'].shift()).abs()
         low_close = (df['Low'] - df['Close'].shift()).abs()
@@ -522,21 +432,17 @@ class EnhancedStockPricePredictor:
         df['atr'] = true_range.rolling(14).mean()
         df['atr_pct'] = df['atr'] / df['Close'] * 100  # ATR в процентах от цены
         
-        # Chaikin Oscillator (для объемов)
         df['ad_line'] = ((2 * df['Close'] - df['High'] - df['Low']) / (df['High'] - df['Low'])) * df['Volume']
         df['ad_line'] = df['ad_line'].cumsum()
         df['chaikin_osc'] = df['ad_line'].ewm(span=3).mean() - df['ad_line'].ewm(span=10).mean()
         
-        # ---------- 3. Временные компоненты ----------
         
-        # Преобразуем индекс в признаки даты
         df['day_of_week'] = df.index.dayofweek  # 0=Понедельник, 6=Воскресенье
         df['month'] = df.index.month
         df['day_of_month'] = df.index.day
         df['week_of_year'] = df.index.isocalendar().week
         df['quarter'] = df.index.quarter
         
-        # Синусоидальное преобразование циклических признаков
         df['day_of_week_sin'] = np.sin(2 * np.pi * df['day_of_week'] / 5)  # 5 рабочих дней
         df['day_of_week_cos'] = np.cos(2 * np.pi * df['day_of_week'] / 5)
         df['month_sin'] = np.sin(2 * np.pi * df['month'] / 12)
@@ -559,13 +465,7 @@ class EnhancedStockPricePredictor:
             df[f'return_std_{period}'] = df['log_return'].rolling(window=period).std()
             df[f'return_skew_{period}'] = df['log_return'].rolling(window=period).skew()
         
-        # ---------- 5. Признаки из новостей ----------
-        
-        # Если есть колонки с сентиментом новостей, они уже добавлены в price_data при _process_news_data
-        
-        # ---------- 6. Целевая переменная и финальная обработка ----------
-        
-        # Создаем целевую переменную: будущая доходность через prediction_horizon дней
+
         df[f'target_return_{prediction_horizon}d'] = df['log_return'].shift(-prediction_horizon)
         
         # Удаляем строки с NaN (из-за смещений)
@@ -590,19 +490,6 @@ class EnhancedStockPricePredictor:
         return X, y, df
    
     def train_model(self, X, y, test_size=0.2, random_state=42, n_splits=5):
-    """
-    Обучение и оценка различных моделей машинного обучения
-    
-    Args:
-        X (pd.DataFrame): Признаки для обучения
-        y (pd.Series): Целевая переменная
-        test_size (float): Доля тестовой выборки
-        random_state (int): Случайное начальное число для воспроизводимости
-        n_splits (int): Количество фолдов для временной кросс-валидации
-        
-    Returns:
-        dict: Словарь с обученными моделями и их метриками
-    """
     print("Обучение моделей и оценка качества...")
     
     # Масштабирование признаков
@@ -681,18 +568,6 @@ class EnhancedStockPricePredictor:
     return results, metrics
 
 def evaluate_feature_importance(self, X, y, model=None, top_n=20):
-    """
-    Оценка важности признаков
-    
-    Args:
-        X (pd.DataFrame): DataFrame с признаками
-        y (pd.Series): Целевая переменная
-        model (object, optional): Модель для оценки важности признаков
-        top_n (int): Количество самых важных признаков для отображения
-        
-    Returns:
-        pd.DataFrame: DataFrame с важностью признаков
-    """
     if model is None:
         if self.best_model is None:
             raise ValueError("Необходимо сначала обучить модель с помощью train_model()")
@@ -749,18 +624,6 @@ def evaluate_feature_importance(self, X, y, model=None, top_n=20):
     return feature_importance
 
 def visualize_results(self, true_values, predictions, sentiment_feature=None, title=None):
-    """
-    Визуализация результатов прогнозирования
-    
-    Args:
-        true_values (pd.Series): Фактические значения
-        predictions (pd.Series): Прогнозные значения
-        sentiment_feature (str, optional): Столбец с сентиментом для корреляционного анализа
-        title (str, optional): Заголовок для графиков
-        
-    Returns:
-        tuple: Объекты графиков matplotlib
-    """
     print("Визуализация результатов прогнозирования...")
     
     # Создаем DataFrame с результатами
@@ -846,15 +709,6 @@ def visualize_results(self, true_values, predictions, sentiment_feature=None, ti
     return fig, axes
 
 def predict_future(self, horizon=5):
-    """
-    Прогнозирование будущих значений цен
-    
-    Args:
-        horizon (int): Горизонт прогнозирования (в днях)
-        
-    Returns:
-        pd.DataFrame: DataFrame с прогнозами
-    """
     if self.best_model is None:
         raise ValueError("Необходимо сначала обучить модель с помощью train_model()")
     
@@ -878,34 +732,23 @@ def predict_future(self, horizon=5):
     for i in range(horizon):
         # Подготовка признаков для текущего дня
         if i == 0:
-            # Для первого дня используем исторические данные
             X_future = last_data.iloc[-1:][self.feature_columns].copy()
         else:
-            # Обновим признаки на основе предыдущих прогнозов
-            # Здесь должна быть сложная логика обновления технических индикаторов
-            # Для упрощения используем последние значения
             X_future = future_df.iloc[-1:][self.feature_columns].copy()
         
-        # Масштабирование признаков
         X_future_scaled = self.scaler.transform(X_future)
         
-        # Прогнозирование логарифмической доходности
         log_return_pred = self.best_model.predict(X_future_scaled)[0]
         predictions.append(log_return_pred)
         
-        # Расчет прогнозной цены
         predicted_price = last_price * np.exp(log_return_pred)
         predicted_prices.append(predicted_price)
         last_price = predicted_price
         
-        # Добавляем прогноз в будущий DataFrame
         future_df.loc[future_dates[i], 'Predicted_Return'] = log_return_pred
         future_df.loc[future_dates[i], 'Predicted_Price'] = predicted_price
         
-        # Здесь должен быть код для обновления всех технических индикаторов
-        # Для простоты примера мы этот шаг пропускаем
-    
-    # Создаем итоговый DataFrame с прогнозами
+       
     forecast_df = pd.DataFrame({
         'Дата': future_dates,
         'Прогнозная доходность': predictions,
@@ -918,17 +761,6 @@ def predict_future(self, horizon=5):
     return forecast_df
 
 def analyze_news_impact(self, X, y, sentiment_columns):
-    """
-    Анализ влияния новостных данных на качество прогноза
-    
-    Args:
-        X (pd.DataFrame): DataFrame с признаками
-        y (pd.Series): Целевая переменная
-        sentiment_columns (list): Список колонок с сентиментом
-        
-    Returns:
-        dict: Результаты анализа
-    """
     print("Анализ влияния новостных данных на качество прогноза...")
     
     # Проверка наличия сентимент-колонок в данных
@@ -1036,12 +868,6 @@ def analyze_news_impact(self, X, y, sentiment_columns):
     }
 
 def save_model(self, filepath):
-    """
-    Сохранение обученной модели
-    
-    Args:
-        filepath (str): Путь для сохранения модели
-    """
     if self.best_model is None:
         raise ValueError("Нет обученной модели для сохранения")
     
@@ -1062,19 +888,6 @@ def save_model(self, filepath):
     print(f"Модель успешно сохранена в {filepath}")
 
     def train_model(self, X, y, test_size=0.2, random_state=42, n_splits=5):
-    """
-    Обучение и оценка различных моделей машинного обучения
-    
-    Args:
-        X (pd.DataFrame): Признаки для обучения
-        y (pd.Series): Целевая переменная
-        test_size (float): Доля тестовой выборки
-        random_state (int): Случайное начальное число для воспроизводимости
-        n_splits (int): Количество фолдов для временной кросс-валидации
-        
-    Returns:
-        dict: Словарь с обученными моделями и их метриками
-    """
     print("Обучение моделей и оценка качества...")
     
     # Масштабирование признаков
@@ -1153,18 +966,7 @@ def save_model(self, filepath):
     return results, metrics
 
 def evaluate_feature_importance(self, X, y, model=None, top_n=20):
-    """
-    Оценка важности признаков
-    
-    Args:
-        X (pd.DataFrame): DataFrame с признаками
-        y (pd.Series): Целевая переменная
-        model (object, optional): Модель для оценки важности признаков
-        top_n (int): Количество самых важных признаков для отображения
-        
-    Returns:
-        pd.DataFrame: DataFrame с важностью признаков
-    """
+
     if model is None:
         if self.best_model is None:
             raise ValueError("Необходимо сначала обучить модель с помощью train_model()")
@@ -1221,18 +1023,6 @@ def evaluate_feature_importance(self, X, y, model=None, top_n=20):
     return feature_importance
 
 def visualize_results(self, true_values, predictions, sentiment_feature=None, title=None):
-    """
-    Визуализация результатов прогнозирования
-    
-    Args:
-        true_values (pd.Series): Фактические значения
-        predictions (pd.Series): Прогнозные значения
-        sentiment_feature (str, optional): Столбец с сентиментом для корреляционного анализа
-        title (str, optional): Заголовок для графиков
-        
-    Returns:
-        tuple: Объекты графиков matplotlib
-    """
     print("Визуализация результатов прогнозирования...")
     
     # Создаем DataFrame с результатами
@@ -1318,15 +1108,6 @@ def visualize_results(self, true_values, predictions, sentiment_feature=None, ti
     return fig, axes
 
 def predict_future(self, horizon=5):
-    """
-    Прогнозирование будущих значений цен
-    
-    Args:
-        horizon (int): Горизонт прогнозирования (в днях)
-        
-    Returns:
-        pd.DataFrame: DataFrame с прогнозами
-    """
     if self.best_model is None:
         raise ValueError("Необходимо сначала обучить модель с помощью train_model()")
     
@@ -1353,9 +1134,6 @@ def predict_future(self, horizon=5):
             # Для первого дня используем исторические данные
             X_future = last_data.iloc[-1:][self.feature_columns].copy()
         else:
-            # Обновим признаки на основе предыдущих прогнозов
-            # Здесь должна быть сложная логика обновления технических индикаторов
-            # Для упрощения используем последние значения
             X_future = future_df.iloc[-1:][self.feature_columns].copy()
         
         # Масштабирование признаков
@@ -1370,14 +1148,9 @@ def predict_future(self, horizon=5):
         predicted_prices.append(predicted_price)
         last_price = predicted_price
         
-        # Добавляем прогноз в будущий DataFrame
         future_df.loc[future_dates[i], 'Predicted_Return'] = log_return_pred
         future_df.loc[future_dates[i], 'Predicted_Price'] = predicted_price
-        
-        # Здесь должен быть код для обновления всех технических индикаторов
-        # Для простоты примера мы этот шаг пропускаем
-    
-    # Создаем итоговый DataFrame с прогнозами
+
     forecast_df = pd.DataFrame({
         'Дата': future_dates,
         'Прогнозная доходность': predictions,
@@ -1390,17 +1163,6 @@ def predict_future(self, horizon=5):
     return forecast_df
 
 def analyze_news_impact(self, X, y, sentiment_columns):
-    """
-    Анализ влияния новостных данных на качество прогноза
-    
-    Args:
-        X (pd.DataFrame): DataFrame с признаками
-        y (pd.Series): Целевая переменная
-        sentiment_columns (list): Список колонок с сентиментом
-        
-    Returns:
-        dict: Результаты анализа
-    """
     print("Анализ влияния новостных данных на качество прогноза...")
     
     # Проверка наличия сентимент-колонок в данных
@@ -1895,19 +1657,6 @@ def advanced_feature_engineering(self, df):
     return extended_df
 
 def ensemble_modeling(self, X, y, test_size=0.2, random_state=42, n_splits=5):
-    """
-    Построение ансамблевой модели с использованием стекинга
-    
-    Args:
-        X (pd.DataFrame): Признаки для обучения
-        y (pd.Series): Целевая переменная
-        test_size (float): Доля тестовой выборки
-        random_state (int): Случайное начальное число для воспроизводимости
-        n_splits (int): Количество фолдов для временной кросс-валидации
-        
-    Returns:
-        object: Обученная ансамблевая модель
-    """
     print("Построение ансамблевой модели с использованием стекинга...")
     
     # Импорт библиотек для стекинга
@@ -2001,19 +1750,6 @@ def ensemble_modeling(self, X, y, test_size=0.2, random_state=42, n_splits=5):
     return stacking_model, mean_metrics
 
 def ablation_study(self, X, y, features_groups, test_size=0.2, random_state=42):
-    """
-    Исследование влияния различных групп признаков на качество модели
-    
-    Args:
-        X (pd.DataFrame): Признаки для обучения
-        y (pd.Series): Целевая переменная
-        features_groups (dict): Словарь с группами признаков
-        test_size (float): Доля тестовой выборки
-        random_state (int): Случайное начальное число для воспроизводимости
-        
-    Returns:
-        pd.DataFrame: Результаты исследования
-    """
     print("Исследование влияния различных групп признаков на качество модели...")
     
     # Проверка корректности групп признаков
